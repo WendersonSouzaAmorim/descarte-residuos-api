@@ -1,0 +1,28 @@
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { RegistrosDescarteService } from './registros-descarte.service';
+import { RegistroDescarte } from './schemas/registro-descarte.schema';
+
+@Controller('registros-descarte')
+export class RegistrosDescarteController {
+  constructor(private readonly registrosDescarteService: RegistrosDescarteService) {}
+
+  @Post()
+  async registrar(@Body() registroDescarte: RegistroDescarte) {
+    return this.registrosDescarteService.registrar(registroDescarte);
+  }
+
+  @Get()
+  async consultar(
+    @Query('pontoDescarteId') pontoDescarteId?: string,
+    @Query('tipoResiduo') tipoResiduo?: string,
+    @Query('data') data?: string,
+    @Query('nomeUsuario') nomeUsuario?: string,
+  ) {
+    return this.registrosDescarteService.consultarFiltrado({
+      pontoDescarteId,
+      tipoResiduo,
+      data,
+      nomeUsuario,
+    });
+  }
+}

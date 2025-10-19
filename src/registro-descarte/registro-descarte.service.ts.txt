@@ -1,0 +1,130 @@
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { RegistroDescarte, RegistroDescarteDocument } from './schemas/registro-descarte.schema';
+
+interface FiltrosConsulta {
+  pontoDescarteId?: string;
+  tipoResiduo?: string;
+  data?: string;
+  nomeUsuario?: string;
+}
+
+@Injectable()
+export class RegistrosDescarteService {
+  constructor(
+    @InjectModel(RegistroDescarte.name) private registroDescarteModel: Model<RegistroDescarteDocument>,
+  ) {}
+
+  async registrar(registroDescarte: RegistroDescarte): Promise<RegistroDescarte> {
+    const criado = new this.registroDescarteModel(registroDescarte);
+    return criado.save();
+  }
+
+  async consultarFiltrado(filtros: FiltrosConsulta): Promise<RegistroDescarte[]> {
+    const query: any = {};
+
+    if (filtros.pontoDescarteId) {
+      query.pontoDescarteId = new Types.ObjectId(filtros.pontoDescarteId);
+    }
+
+    if (filtros.tipoResiduo) {
+      query.tipoResiduo = filtros.tipoResiduo;
+    }
+
+    if (filtros.data) {
+      const data = new Date(filtros.data);
+      const nextDay = new Date(data);
+      nextDay.setDate(data.getDate() + 1);
+      
+      query.dataDescarte = {
+        $gte: data,
+        $lt: nextDay
+      };
+    }
+
+    if (filtros.nomeUsuario) {
+      query.nomeUsuario = { $regex: filtros.nomeUsuario, $options: 'i' };
+    }
+
+    return this.registroDescarteModel.find(query).populate('pontoDescarteId').exec();
+  }
+
+  async contarUsuariosUnicos(): Promise<number> {
+    const resultado = await this.registroDescarteModel.aggregate([
+      { $group: { _id: '$nomeUsuario' } },
+      { $count: 'totalUsuarios' }
+    ]).exec();
+    
+    return resultado.length > 0 ? resultado[0].totalUsuarios : 0;
+  }
+
+  async buscarResiduoMaisFrequente(): Promise<{ tipoResiduo: string, total: number }> {
+    const resultado = await this.registroDescarteModel.aggregate([
+      { $group: { _id: '$tipoResiduo', total: { $sum: '$quantidade' } } },
+      { $sort: { total: -1 } },
+      { $limit: 1 }
+    ]).exec();
+
+    return resultado.length > 0 ? { 
+      tipoResiduo: resultado[0]._id, 
+      total: resultado[0].total 
+    } : { tipoResiduo: 'Nenhum', total: 0 };
+  }
+
+  async buscarLocalMaisFrequente(): Promise<{ pontoDescarteId: string, total: number }> {
+    const resultado = await this.registroDescarteModel.aggregate([
+      { $group: { _id: '$pontoDescarteId', total: { $sum: 1 } } },
+      { $sort: { total: -1 } },
+      { $limit: 1 }
+    ]).exec();
+
+    return resultado.length > 0 ? { 
+      pontoDescarteId: resultado[0]._id.toString(), 
+      total: resultado[0].total 
+    } : { pontoDescarteId: 'Nenhum', total: 0 };
+  }
+
+  async calcularMediaDescartesUltimos30Dias(): Promise<number> {
+    const trintaDiasAtras = new Date();
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+
+    const resultado = await this.registroDescarteModel.aggregate([
+      { $match: { dataDescarte: { $gte: trintaDiasAtras } } },
+      { 
+        $group: { 
+          _id: { 
+            $dateToString: { format: "%Y-%m-%d", date: "$dataDescarte" } 
+          },
+          totalDia: { $sum: '$quantidade' }
+        } 
+      },
+      { $group: { _id: null, media: { $avg: '$totalDia' } } }
+    ]).exec();
+
+    return resultado.length > 0 ? Math.round(resultado[0].media * 100) / 100 : 0;
+  }
+
+  async calcularVariacaoMensal(): Promise<number> {
+    const agora = new Date();
+    const mesAtualInicio = new Date(agora.getFullYear(), agora.getMonth(), 1);
+    const mesAnteriorInicio = new Date(agora.getFullYear(), agora.getMonth() - 1, 1);
+    const mesAnteriorFim = new Date(agora.getFullYear(), agora.getMonth(), 0);
+
+    const [totalMesAtual, totalMesAnterior] = await Promise.all([
+      this.registroDescarteModel.countDocuments({ 
+        dataDescarte: { $gte: mesAtualInicio } 
+      }).exec(),
+      this.registroDescarteModel.countDocuments({ 
+        dataDescarte: { 
+          $gte: mesAnteriorInicio, 
+          $lte: mesAnteriorFim 
+        } 
+      }).exec()
+    ]);
+
+    if (totalMesAnterior === 0) return totalMesAtual > 0 ? 100 : 0;
+    
+    return Math.round(((totalMesAtual - totalMesAnterior) / totalMesAnterior) * 100);
+  }
+}

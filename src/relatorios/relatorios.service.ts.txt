@@ -1,0 +1,40 @@
+import { Injectable } from '@nestjs/common';
+import { RegistrosDescarteService } from '../registros-descarte/registros-descarte.service';
+import { PontosDescarteService } from '../pontos-descarte/pontos-descarte.service';
+
+@Injectable()
+export class RelatoriosService {
+  constructor(
+    private readonly registrosDescarteService: RegistrosDescarteService,
+    private readonly pontosDescarteService: PontosDescarteService,
+  ) {}
+
+  async gerarRelatorioCompleto() {
+    const [
+      localMaisFrequente,
+      residuoMaisFrequente,
+      mediaDescartes,
+      totalUsuarios,
+      totalPontosDescarte,
+      variacaoMensal
+    ] = await Promise.all([
+      this.registrosDescarteService.buscarLocalMaisFrequente(),
+      this.registrosDescarteService.buscarResiduoMaisFrequente(),
+      this.registrosDescarteService.calcularMediaDescartesUltimos30Dias(),
+      this.registrosDescarteService.contarUsuariosUnicos(),
+      this.pontosDescarteService.contarTotal(),
+      this.registrosDescarteService.calcularVariacaoMensal()
+    ]);
+
+    return {
+      localMaisRegistros: localMaisFrequente,
+      residuoMaisFrequente: residuoMaisFrequente,
+      mediaDescartesUltimos30Dias: mediaDescartes,
+      totalUsuarios: totalUsuarios,
+      totalPontosDescarte: totalPontosDescarte,
+      variacaoMensal: `${variacaoMensal}%`,
+      dataGeracao: new Date().toISOString(),
+      ods: "ODS 12 - Consumo e Produção Responsáveis"
+    };
+  }
+}

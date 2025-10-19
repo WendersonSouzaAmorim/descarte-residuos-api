@@ -1,0 +1,28 @@
+import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import { PontosDescarteService } from './pontos-descarte.service';
+import { PontoDescarte } from './schemas/ponto-descarte.schema';
+
+@Controller('pontos-descarte')
+export class PontosDescarteController {
+  constructor(private readonly pontosDescarteService: PontosDescarteService) {}
+
+  @Post()
+  async criar(@Body() pontoDescarte: PontoDescarte) {
+    return this.pontosDescarteService.criar(pontoDescarte);
+  }
+
+  @Get()
+  async listarTodos() {
+    return this.pontosDescarteService.listarTodos();
+  }
+
+  @Get(':id')
+  async buscarPorId(@Param('id') id: string) {
+    return this.pontosDescarteService.buscarPorId(id);
+  }
+
+  @Delete(':id')
+  async remover(@Param('id') id: string) {
+    return this.pontosDescarteService.remover(id);
+  }
+}

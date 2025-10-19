@@ -1,0 +1,32 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import * as request from 'supertest';
+import { AppModule } from './../src/app.module';
+
+describe('AppController (e2e)', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+  });
+
+  it('/relatorio (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/relatorio')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body).toHaveProperty('localMaisRegistros');
+        expect(res.body).toHaveProperty('residuoMaisFrequente');
+        expect(res.body).toHaveProperty('mediaDescartesUltimos30Dias');
+        expect(res.body).toHaveProperty('totalUsuarios');
+        expect(res.body).toHaveProperty('totalPontosDescarte');
+        expect(res.body).toHaveProperty('variacaoMensal');
+        expect(res.body).toHaveProperty('ods', 'ODS 12 - Consumo e Produção Responsáveis');
+      });
+  });
+});

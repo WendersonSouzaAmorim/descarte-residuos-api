@@ -1,0 +1,41 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+
+export type PontoDescarteDocument = PontoDescarte & Document;
+
+@Schema()
+export class PontoDescarte {
+  @Prop({ required: true })
+  nome: string;
+
+  @Prop({ required: true })
+  bairro: string;
+
+  @Prop({ required: true, enum: ['público', 'privado'] })
+  tipoLocal: string;
+
+  @Prop({ required: true, type: [String] })
+  categoriasResiduos: string[];
+
+  @Prop({
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      required: true
+    }
+  })
+  localizacao: {
+    type: string;
+    coordinates: number[];
+  };
+
+  @Prop({ default: Date.now })
+  dataCadastro: Date;
+}
+
+export const PontoDescarteSchema = SchemaFactory.createForClass(PontoDescarte);
+PontoDescarteSchema.index({ localizacao: '2dsphere' });
